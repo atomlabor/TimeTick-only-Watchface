@@ -2,33 +2,93 @@
   "name": "TimeTick",
   "version": "1.0.0",
   "author": "atomlabor",
-  "type": "package",
   "pebble": {
     "displayName": "TimeTick",
     "uuid": "3f2a1b4c-5d6e-7f8a-9b0c-1d2e3f4a5b6c",
     "sdkVersion": "3",
+    "enableMultiJS": true,
     "targetPlatforms": ["emery"],
-    "watchapp": { "watchface": true },
-    "capabilities": ["health", "location"],
+    "watchapp": {
+      "watchface": true
+    },
+    "capabilities": ["health", "location", "configurable"],
     "messageKeys": {
       "MSG_KEY_TEMP": 2,
-      "MSG_KEY_REQUEST": 3
+      "MSG_KEY_REQUEST": 3,
+      "owm_api_key": 4
     },
     "resources": {
       "media": [
-        { "type": "bitmap", "name": "IMG_BG",  "file": "images/bg.png" },
-        { "type": "bitmap", "name": "IMG_BG2", "file": "images/bg2.png" },
-        { "type": "bitmap", "name": "IMG_0",   "file": "images/0b.png" },
-        { "type": "bitmap", "name": "IMG_1",   "file": "images/1b.png" },
-        { "type": "bitmap", "name": "IMG_2",   "file": "images/2b.png" },
-        { "type": "bitmap", "name": "IMG_3",   "file": "images/3b.png" },
-        { "type": "bitmap", "name": "IMG_4",   "file": "images/4b.png" },
-        { "type": "bitmap", "name": "IMG_5",   "file": "images/5b.png" },
-        { "type": "bitmap", "name": "IMG_6",   "file": "images/6b.png" },
-        { "type": "bitmap", "name": "IMG_7",   "file": "images/7b.png" },
-        { "type": "bitmap", "name": "IMG_8",   "file": "images/8b.png" },
-        { "type": "bitmap", "name": "IMG_9",   "file": "images/9b.png" }
+        {
+          "type": "bitmap",
+          "name": "IMG_BG",
+          "file": "images/bg.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMG_BG2",
+          "file": "images/bg2.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMG_0",
+          "file": "images/0b.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMG_1",
+          "file": "images/1b.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMG_2",
+          "file": "images/2b.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMG_3",
+          "file": "images/3b.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMG_4",
+          "file": "images/4b.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMG_5",
+          "file": "images/5b.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMG_6",
+          "file": "images/6b.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMG_7",
+          "file": "images/7b.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMG_8",
+          "file": "images/8b.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMG_9",
+          "file": "images/9b.png"
+        },
+        {
+          "type": "bitmap",
+          "name": "IMAGE_MENU_ICON",
+          "menuIcon": true,
+          "file": "images/menu_icon.png"
+        }
       ]
     }
+  },
+  "dependencies": {
+    "pebble-clay": "^1.0.3"
   }
 }
