@@ -1,25 +1,29 @@
-// src/pkjs/index.js
-
 var Clay = require('pebble-clay');
 var clayConfig = require('./config.json');
 var clay = new Clay(clayConfig);
 
 var SETTINGS_KEY = 'timetick_settings_manual';
 
-function sendTemperature(temp) {
-  var message = {
-    "MSG_KEY_TEMP": temp
-  };
+var MSG_KEY_TEMP = 2;
+var MSG_KEY_REQUEST = 3;
+var MSG_KEY_ENABLE_WEATHER = 5;
+var MSG_KEY_ENABLE_CLEANSTYLE = 7;
 
-  console.log('Sending to watch: ' + JSON.stringify(message));
+function log(msg) {
+  console.log('[TimeTick] ' + msg);
+}
+
+function sendTemperature(temp) {
+  var dict = {};
+  dict[MSG_KEY_TEMP] = temp;
 
   Pebble.sendAppMessage(
-    message,
+    dict,
     function() {
-      console.log('Sent to watch: ' + temp + '°C');
+      log('Weather sent: ' + temp);
     },
     function(e) {
-      console.log('sendAppMessage error: ' + JSON.stringify(e));
+      log('Error sending weather: ' + JSON.stringify(e));
     }
   );
 }
@@ -27,9 +31,8 @@ function sendTemperature(temp) {
 function saveSettings(settings) {
   try {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings || {}));
-    console.log('Settings saved manually: ' + JSON.stringify(settings || {}));
   } catch (err) {
-    console.log('Settings save error: ' + err.message);
+    log('Save settings error: ' + err);
   }
 }
 
@@ -43,84 +46,33 @@ function loadSettings() {
       settings = JSON.parse(raw);
     }
   } catch (err) {
-    console.log('Settings load error: ' + err.message);
+    log('Load settings error: ' + err);
   }
-
-  console.log('Loaded manual settings: ' + JSON.stringify(settings || {}));
 
   return settings || {};
 }
 
-function parseClayResponse(response) {
-  console.log('Raw Clay response: ' + response);
+function normalizeBool(value, fallback) {
+  if (value === undefined || value === null) return fallback;
 
-  if (!response) {
-    return {};
-  }
+  if (value === true || value === 1) return true;
+  if (value === false || value === 0) return false;
 
-  var decoded = response;
+  var str = String(value).toLowerCase();
 
-  try {
-    decoded = decodeURIComponent(decoded);
-  } catch (err1) {
-    console.log('First decode error: ' + err1.message);
-  }
+  return str === 'true' || str === '1' || str === 'yes' || str === 'on';
+}
 
-  try {
-    decoded = decodeURIComponent(decoded);
-  } catch (err2) {
-    // Manche Antworten sind nur einmal encodet. Das ist okay.
-  }
+function isWeatherEnabled() {
+  var settings = loadSettings();
 
-  console.log('Decoded Clay response: ' + decoded);
+  var enabled =
+    settings.enable_weather ||
+    settings['enable_weather'] ||
+    settings[MSG_KEY_ENABLE_WEATHER] ||
+    settings[String(MSG_KEY_ENABLE_WEATHER)];
 
-  var jsonStart = decoded.indexOf('{');
-  var jsonEnd = decoded.lastIndexOf('}');
-
-  if (jsonStart >= 0 && jsonEnd > jsonStart) {
-    var jsonText = decoded.substring(jsonStart, jsonEnd + 1);
-
-    try {
-      var parsed = JSON.parse(jsonText);
-      console.log('Parsed Clay JSON: ' + JSON.stringify(parsed));
-      return parsed || {};
-    } catch (err3) {
-      console.log('Clay JSON parse error: ' + err3.message);
-    }
-  }
-
-  var querySettings = {};
-
-  try {
-    var clean = decoded;
-
-    if (clean.indexOf('?') >= 0) {
-      clean = clean.split('?')[1];
-    }
-
-    if (clean.indexOf('#') >= 0) {
-      clean = clean.split('#')[1];
-    }
-
-    var parts = clean.split('&');
-
-    for (var i = 0; i < parts.length; i++) {
-      var pair = parts[i].split('=');
-
-      if (pair.length === 2) {
-        var key = decodeURIComponent(pair[0]);
-        var value = decodeURIComponent(pair[1]);
-
-        querySettings[key] = value;
-      }
-    }
-
-    console.log('Parsed Clay query settings: ' + JSON.stringify(querySettings));
-  } catch (err4) {
-    console.log('Clay query parse error: ' + err4.message);
-  }
-
-  return querySettings;
+  return normalizeBool(enabled, true);
 }
 
 function getApiKey() {
@@ -128,137 +80,195 @@ function getApiKey() {
 
   var apiKey =
     settings.owm_api_key ||
-    settings["owm_api_key"] ||
+    settings['owm_api_key'] ||
+    settings.openweathermap_api_key ||
+    settings['openweathermap_api_key'] ||
+    settings.api_key ||
+    settings['api_key'] ||
     settings[4] ||
-    settings["4"] ||
+    settings['4'] ||
     '';
 
-  apiKey = String(apiKey).trim();
+  return String(apiKey).trim();
+}
 
-  console.log('API key settings object: ' + JSON.stringify(settings));
+function hasWeatherRequest(payload) {
+  if (!payload) return false;
 
-  if (!apiKey) {
-    console.log('No API key found');
-  } else {
-    console.log('API key found, length: ' + apiKey.length);
-  }
-
-  return apiKey;
+  return (
+    payload[MSG_KEY_REQUEST] !== undefined ||
+    payload[String(MSG_KEY_REQUEST)] !== undefined ||
+    payload.MSG_KEY_REQUEST !== undefined ||
+    payload.request !== undefined
+  );
 }
 
 function fetchWeather(lat, lon) {
   var apiKey = getApiKey();
+  var useOpenWeather = apiKey && apiKey.length > 0;
+  var url = '';
 
-if (!apiKey) {
-  console.log('No API key has been set in Clay. Weather will stay hidden.');
-  return;
-}
+  if (useOpenWeather) {
+    url =
+      'https://api.openweathermap.org/data/2.5/weather' +
+      '?lat=' + encodeURIComponent(lat) +
+      '&lon=' + encodeURIComponent(lon) +
+      '&units=metric' +
+      '&appid=' + encodeURIComponent(apiKey);
 
-  var url = 'https://api.openweathermap.org/data/2.5/weather'
-          + '?lat=' + encodeURIComponent(lat)
-          + '&lon=' + encodeURIComponent(lon)
-          + '&units=metric'
-          + '&appid=' + encodeURIComponent(apiKey);
+    log('Fetching weather via OpenWeather.');
+  } else {
+    url =
+      'https://api.open-meteo.com/v1/forecast' +
+      '?latitude=' + encodeURIComponent(lat) +
+      '&longitude=' + encodeURIComponent(lon) +
+      '&current_weather=true';
 
-  console.log('Fetching weather from OpenWeatherMap');
+    log('Fetching weather via OpenMeteo fallback.');
+  }
 
   var xhr = new XMLHttpRequest();
 
   xhr.onload = function() {
-    console.log('OWM status: ' + xhr.status);
-    console.log('OWM response: ' + xhr.responseText);
+    log('Weather status: ' + xhr.status);
 
-    if (xhr.status !== 200) {
-      // 91°C bedeutet: OpenWeatherMap antwortet mit Fehler
-      sendTemperature(91);
-      return;
-    }
+    if (xhr.status === 200) {
+      try {
+        var data = JSON.parse(xhr.responseText);
+        var temp = null;
 
-    try {
-      var data = JSON.parse(xhr.responseText);
+        if (useOpenWeather) {
+          if (
+            data &&
+            data.main &&
+            data.main.temp !== undefined &&
+            data.main.temp !== null
+          ) {
+            temp = Math.round(data.main.temp);
+          }
+        } else {
+          if (
+            data &&
+            data.current_weather &&
+            data.current_weather.temperature !== undefined &&
+            data.current_weather.temperature !== null
+          ) {
+            temp = Math.round(data.current_weather.temperature);
+          }
+        }
 
-      if (!data.main || typeof data.main.temp === 'undefined') {
-        // 92°C bedeutet: Antwort da, aber keine Temperatur gefunden
-        sendTemperature(92);
-        return;
+        if (temp !== null) {
+          sendTemperature(temp);
+        } else {
+          log('Weather JSON has no usable temperature.');
+          sendTemperature(93);
+        }
+      } catch (err) {
+        log('Weather JSON parse error: ' + err);
+        sendTemperature(93);
       }
-
-      var temp = Math.round(data.main.temp);
-
-      console.log('Temperature received from OWM: ' + temp + '°C');
-
-      sendTemperature(temp);
-    } catch (err) {
-      console.log('JSON parse error: ' + err.message);
-
-      // 93°C bedeutet: Antwort konnte nicht gelesen werden
-      sendTemperature(93);
+    } else if (xhr.status === 401 || xhr.status === 403) {
+      log('API key error.');
+      sendTemperature(92);
+    } else {
+      log('Weather network error status: ' + xhr.status);
+      sendTemperature(94);
     }
   };
 
   xhr.onerror = function() {
-    console.log('Network error while fetching weather');
-
-    // 94°C bedeutet: Netzwerkfehler beim Wetterabruf
+    log('Weather xhr error.');
     sendTemperature(94);
   };
 
+  xhr.ontimeout = function() {
+    log('Weather xhr timeout.');
+    sendTemperature(94);
+  };
+
+  xhr.timeout = 15000;
   xhr.open('GET', url);
   xhr.send();
 }
 
 function getLocationAndFetch() {
-  console.log('Requesting location');
+  if (!isWeatherEnabled()) {
+    log('Weather disabled.');
+    sendTemperature(99);
+    return;
+  }
+
+  if (!navigator.geolocation) {
+    log('No geolocation available.');
+    sendTemperature(95);
+    return;
+  }
 
   navigator.geolocation.getCurrentPosition(
     function(pos) {
-      console.log('Location received: ' + pos.coords.latitude + ', ' + pos.coords.longitude);
+      log('Location received.');
 
-      fetchWeather(pos.coords.latitude, pos.coords.longitude);
+      fetchWeather(
+        pos.coords.latitude,
+        pos.coords.longitude
+      );
     },
     function(err) {
-      console.log('GPS error: ' + err.code + ' ' + err.message);
-
-      // 95°C bedeutet: Standort konnte nicht gelesen werden
+      log('Location error: ' + JSON.stringify(err));
       sendTemperature(95);
     },
     {
       timeout: 15000,
-      maximumAge: 60000,
+      maximumAge: 300000,
       enableHighAccuracy: false
     }
   );
 }
 
-Pebble.addEventListener('ready', function(e) {
-  console.log('PebbleKit JS ready');
+Pebble.addEventListener('ready', function() {
+  log('PebbleKit JS ready.');
+});
 
-  loadSettings();
+Pebble.addEventListener('appmessage', function(e) {
+  log('AppMessage received: ' + JSON.stringify(e.payload));
+
+  if (hasWeatherRequest(e.payload)) {
+    log('Weather request received.');
+    getLocationAndFetch();
+  }
 });
 
 Pebble.addEventListener('showConfiguration', function(e) {
-  console.log('Opening Clay configuration');
-
   Pebble.openURL(clay.generateUrl());
 });
 
 Pebble.addEventListener('webviewclosed', function(e) {
-  console.log('Clay webview closed');
-
   if (!e || !e.response) {
-    console.log('No Clay response received');
+    log('Configuration closed without response.');
     return;
   }
 
-  var settings = parseClayResponse(e.response);
+  var dict = {};
 
-  saveSettings(settings);
+  try {
+    dict = clay.getSettings(e.response);
+  } catch (err) {
+    log('Clay getSettings error: ' + err);
+  }
 
-  console.log('Clay settings final: ' + JSON.stringify(settings));
-});
+  saveSettings(dict);
 
-Pebble.addEventListener('appmessage', function(e) {
-  console.log('AppMessage received: ' + JSON.stringify(e.payload));
+  Pebble.sendAppMessage(
+    dict,
+    function() {
+      log('Settings sent to watch: ' + JSON.stringify(dict));
+    },
+    function(err) {
+      log('Settings send error: ' + JSON.stringify(err));
+    }
+  );
 
-  getLocationAndFetch();
+  if (isWeatherEnabled()) {
+    getLocationAndFetch();
+  }
 });
