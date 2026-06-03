@@ -7,15 +7,29 @@
     "type": "section",
     "items": [
       {
+        "type": "toggle",
+        "messageKey": "enable_weather",
+        "label": "Enable Weather",
+        "defaultValue": true,
+        "description": "Show weather on tap. Turn off to completely disable GPS & BT requests and save maximum battery."
+      },
+      {
         "type": "input",
         "messageKey": "owm_api_key",
         "defaultValue": "",
         "label": "OpenWeatherMap API Key",
-        "description": "Get your free API key at openweathermap.org/api",
+        "description": "Optional. Leave blank to automatically use the free Open-Meteo service without a key.",
         "attributes": {
-          "placeholder": "e.g. a1b2c3d4e5f6",
+          "placeholder": "e.g. a1b2c3d4e5f6...",
           "limit": 64
         }
+      },
+      {
+        "type": "toggle",
+        "messageKey": "enable_cleanstyle",
+        "label": "Enable Cleanstyle",
+        "defaultValue": false,
+        "description": "Clean Style Look"
       }
     ]
   },
