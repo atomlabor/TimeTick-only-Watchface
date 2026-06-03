@@ -1,10 +1,10 @@
 {
   "name": "TimeTick",
-  "version": "1.0.0",
+  "version": "1.3.0",
   "author": "atomlabor",
   "pebble": {
     "displayName": "TimeTick",
-    "uuid": "3f2a1b4c-5d6e-7f8a-9b0c-1d2e3f4a5b6c",
+    "uuid": "0cf74805-98d1-490a-be75-f85840ef5b47",
     "sdkVersion": "3",
     "enableMultiJS": true,
     "targetPlatforms": ["emery"],
@@ -15,7 +15,9 @@
     "messageKeys": {
       "MSG_KEY_TEMP": 2,
       "MSG_KEY_REQUEST": 3,
-      "owm_api_key": 4
+      "owm_api_key": 4,
+      "enable_weather": 5,
+      "enable_cleanstyle": 7
     },
     "resources": {
       "media": [
